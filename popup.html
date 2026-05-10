@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=380"/>
+<title>Auto Form Filler</title>
+<style>
+:root {
+  --primary:#2E7D32; --primary-d:#1B5E20; --primary-l:#4CAF50; --primary-bg:#E8F5E9;
+  --danger:#C62828; --danger-l:#FFEBEE; --warn:#F57F17;
+  --g100:#F9FBF9; --g200:#EEEEEE; --g300:#E0E0E0; --g400:#BDBDBD;
+  --g500:#9E9E9E; --g600:#757575; --g700:#424242; --g900:#212121;
+  --white:#fff; --radius:8px; --font:13px;
+  --btn-bg:var(--primary); --section-hdr:#2E7D32; --page-bg:#F1F8E9;
+  --card-bg:#fff; --text:#212121; --sub-text:#757575; --border:#E0E0E0;
+}
+body.dark {
+  --page-bg:#1a1a1a; --card-bg:#2a2a2a; --text:#f0f0f0; --sub-text:#aaa;
+  --border:#444; --g100:#222; --g200:#333; --g300:#444; --g700:#ccc; --g900:#f0f0f0;
+  --white:#2a2a2a;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-size:var(--font);}
+input,select,textarea,button{font-size:var(--font)!important;}
+html{min-height:580px;}
+body{
+  font-family:'Times New Roman',Times,serif;
+  width:380px; min-width:380px; max-width:380px;
+  min-height:580px; height:580px; overflow:hidden;
+  background:var(--page-bg); color:var(--text); font-size:var(--font);
+  position:relative; display:flex; flex-direction:column;
+}
+
+/* ── LOADING OVERLAY ── */
+#overlay-loading{
+  display:none; position:absolute; inset:0;
+  background:rgba(255,255,255,0.93); z-index:9999;
+  flex-direction:column; align-items:center; justify-content:center; gap:14px;
+}
+body.dark #overlay-loading{background:rgba(26,26,26,0.93);}
+#overlay-loading.show{display:flex;}
+.spinner{width:36px;height:36px;border:3.5px solid var(--g300);
+  border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#overlay-loading-text{font-size:14px;font-weight:600;color:var(--primary);}
+
+/* ── SCREENS (stack inside body, full width/height) ── */
+.screen{
+  display:none; flex-direction:column;
+  width:380px; height:580px; overflow:hidden;
+  position:absolute; top:0; left:0;
+  background:var(--page-bg);
+}
+.screen.active{display:flex;}
+
+/* ── SCROLLABLE BODY AREA ── */
+.screen-body{
+  flex:1; overflow-y:auto; overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+}
+.screen-body::-webkit-scrollbar{width:4px;}
+.screen-body::-webkit-scrollbar-track{background:transparent;}
+.screen-body::-webkit-scrollbar-thumb{background:var(--g300);border-radius:2px;}
+.screen-body-pad{padding:16px 14px 12px;}
+
+/* ── TOP BAR ── */
+.top-bar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 14px; background:var(--primary); color:#fff;
+  flex-shrink:0; height:52px; min-height:52px;
+}
+.top-bar-center{flex:1; text-align:center;}
+.top-bar-left{display:flex; flex-direction:column; gap:1px; flex:1;}
+.top-bar-title{font-size:15px; font-weight:700; color:#fff; line-height:1.2;}
+.top-bar-sub{font-size:11px; color:rgba(255,255,255,0.82); line-height:1.2;}
+.top-bar-right{display:flex; align-items:center; gap:6px; flex-shrink:0;}
+.top-bar-back{
+  background:none; border:none; color:#fff; cursor:pointer;
+  width:34px; height:34px; display:flex; align-items:center; justify-content:center;
+  border-radius:50%; font-size:20px; line-height:1; flex-shrink:0;
+  transition:background .15s;
+}
+.top-bar-back:hover{background:rgba(255,255,255,0.18);}
+.top-bar-icon-btn{
+  background:none; border:none; color:#fff; cursor:pointer;
+  padding:6px 8px; border-radius:6px; font-size:18px;
+  transition:background .15s;
+}
+.top-bar-icon-btn:hover{background:rgba(255,255,255,0.15);}
+.avatar-btn{
+  width:34px; height:34px; border-radius:50%;
+  background:var(--primary-d); color:#fff;
+  font-size:14px; font-weight:700;
+  border:2px solid rgba(255,255,255,0.55);
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  overflow:hidden; transition:border-color .15s; flex-shrink:0;
+}
+.avatar-btn:hover{border-color:#fff;}
+.avatar-btn img{width:100%;height:100%;object-fit:cover;}
+
+/* ══════════════════════════════════
+   AUTH SCREENS
+══════════════════════════════════ */
+.auth-wrap{
+  flex:1; overflow-y:auto; padding:22px 20px 16px;
+  background:var(--page-bg);
+  -webkit-overflow-scrolling:touch;
+}
+.auth-logo{display:flex; align-items:center; gap:10px; margin-bottom:20px;}
+.auth-logo-icon{
+  width:40px; height:40px; background:var(--primary); border-radius:12px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.auth-logo-text h1{font-size:17px; font-weight:700; color:var(--primary-d);}
+.auth-logo-text p{font-size:11px; color:var(--g500);}
+.auth-title{font-size:14px; font-weight:700; color:var(--text); margin-bottom:14px;}
+.form-group{display:flex; flex-direction:column; gap:4px; margin-bottom:11px;}
+.form-group label{font-size:11px; font-weight:600; color:var(--g700);}
+.form-group input{
+  padding:9px 11px; border:1.5px solid var(--border); border-radius:var(--radius);
+  font-size:13px; background:var(--card-bg); color:var(--text); outline:none;
+  font-family:inherit; transition:border-color .15s, box-shadow .15s; width:100%;
+}
+.form-group input:focus{border-color:var(--primary); box-shadow:0 0 0 3px rgba(46,125,50,.1);}
+.form-row-2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.msg-error{font-size:11px; color:var(--danger); min-height:15px; font-weight:500; margin-bottom:4px;}
+.msg-ok{font-size:11px; color:var(--primary); min-height:15px; font-weight:500;}
+.btn{
+  padding:10px 14px; border:none; border-radius:var(--radius);
+  font-size:13px; font-weight:600; cursor:pointer;
+  transition:opacity .15s,transform .1s; font-family:inherit;
+}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--btn-bg); color:#fff; width:100%; display:block; margin-top:4px;}
+.btn-primary:hover:not(:disabled){opacity:.9;}
+.btn-primary:disabled{opacity:.45; cursor:not-allowed;}
+.auth-divider{text-align:center; font-size:11px; color:var(--g400); margin:10px 0;}
+.auth-link{
+  background:none; border:none; color:var(--primary); font-size:12px;
+  cursor:pointer; text-decoration:none; font-family:inherit; font-weight:500;
+}
+.auth-link:hover{text-decoration:underline;}
+.auth-footer{text-align:center; margin-top:12px; font-size:12px; color:var(--g600);}
+.mt-8{margin-top:8px;}
+
+/* Password strength */
+.strength-bar-bg{height:4px; background:var(--g300); border-radius:2px; overflow:hidden; margin-top:4px;}
+.strength-bar{height:4px; width:0; border-radius:2px; transition:width .25s,background .25s;}
+.strength-row{display:flex; justify-content:space-between; align-items:center; margin-top:3px;}
+.strength-label{font-size:10px; font-weight:600;}
+.pw-rules{list-style:none; display:flex; flex-wrap:wrap; gap:3px 10px; margin-top:5px;}
+.pw-rules li{font-size:10px; color:var(--g500);}
+.pw-rules li::before{content:'✗ '; color:var(--danger);}
+.pw-rules li.ok::before{content:'✓ '; color:var(--primary);}
+
+/* ══════════════════════════════════
+   PROFILE LIST SCREEN
+══════════════════════════════════ */
+.profile-list{display:flex; flex-direction:column; gap:10px;}
+.profile-card{
+  display:flex; align-items:center; gap:12px;
+  background:var(--card-bg); border:1.5px solid var(--border);
+  border-radius:12px; padding:12px 10px 12px 14px; cursor:pointer;
+  transition:box-shadow .15s,border-color .15s; position:relative;
+  box-shadow:0 1px 3px rgba(0,0,0,.05);
+}
+.profile-card:hover{border-color:var(--primary); box-shadow:0 2px 10px rgba(46,125,50,.12);}
+.profile-avatar{
+  width:42px; height:42px; border-radius:50%; background:var(--primary);
+  color:#fff; font-size:17px; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; overflow:hidden;
+}
+.profile-avatar img{width:100%;height:100%;object-fit:cover;}
+.profile-info{flex:1; min-width:0;}
+.profile-name-row{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+.profile-name{font-size:14px; font-weight:600; color:var(--text);}
+.badge-default{
+  font-size:9px; font-weight:700; background:var(--primary); color:#fff;
+  padding:2px 6px; border-radius:10px; text-transform:uppercase; flex-shrink:0;
+}
+.profile-sub{font-size:11px; color:var(--sub-text); margin-top:2px;}
+.profile-menu-btn{
+  background:none; border:none; color:var(--g500); cursor:pointer;
+  width:32px; height:32px; display:flex; align-items:center; justify-content:center;
+  border-radius:6px; font-size:20px; font-weight:700; flex-shrink:0;
+  line-height:1; transition:background .15s;
+}
+.profile-menu-btn:hover{background:var(--g200); color:var(--g900);}
+.add-profile-card{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  background:transparent; border:1.5px dashed var(--g400);
+  border-radius:12px; padding:15px; cursor:pointer;
+  transition:border-color .15s,background .15s; color:var(--g600); font-size:13px; font-weight:500;
+}
+.add-profile-card:hover{border-color:var(--primary); background:var(--primary-bg); color:var(--primary);}
+
+/* Dropdown */
+.dropdown-menu{
+  position:absolute; right:8px; top:100%; margin-top:4px;
+  background:var(--card-bg); border:1px solid var(--border);
+  border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,.15);
+  z-index:500; min-width:168px; overflow:hidden;
+}
+.dropdown-item{
+  display:flex; align-items:center; gap:8px; padding:10px 14px;
+  font-size:12px; font-weight:500; cursor:pointer; color:var(--text);
+  transition:background .1s; border:none; background:none;
+  width:100%; text-align:left; font-family:inherit;
+}
+.dropdown-item:hover{background:var(--g100);}
+.dropdown-item.danger{color:var(--danger);}
+.dropdown-item.danger:hover{background:var(--danger-l);}
+
+/* ══════════════════════════════════
+   FORM SCREEN
+══════════════════════════════════ */
+.section{
+  background:var(--card-bg); border:1px solid var(--border);
+  border-radius:10px; margin-bottom:10px; overflow:hidden;
+}
+.section-hdr{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 14px; cursor:pointer; background:var(--section-hdr);
+  color:#fff; font-size:12px; font-weight:700; letter-spacing:.3px; user-select:none;
+}
+.section-hdr .chevron{transition:transform .2s; font-size:13px;}
+.section.open .section-hdr .chevron{transform:rotate(180deg);}
+.section-body{display:none; padding:12px 14px 14px;}
+.section.open .section-body{display:block;}
+.field-row{display:flex; flex-direction:column; gap:3px; margin-bottom:9px;}
+.field-row:last-child{margin-bottom:0;}
+.field-label{font-size:10px; font-weight:600; color:var(--g600); text-transform:uppercase; letter-spacing:.3px;}
+.field-input{
+  padding:8px 10px; border:1.5px solid var(--border); border-radius:7px;
+  font-size:12px; background:var(--card-bg); color:var(--text);
+  outline:none; font-family:inherit; width:100%; transition:border-color .15s;
+}
+.field-input:focus{border-color:var(--primary); box-shadow:0 0 0 2px rgba(46,125,50,.1);}
+.field-select{
+  padding:8px 10px; border:1.5px solid var(--border); border-radius:7px;
+  font-size:12px; background:var(--card-bg); color:var(--text);
+  outline:none; font-family:inherit; width:100%; transition:border-color .15s;
+}
+.field-select:focus{border-color:var(--primary);}
+.field-row-2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.edu-sub{margin-bottom:12px; border:1px solid var(--border); border-radius:8px; overflow:hidden;}
+.edu-sub:last-child{margin-bottom:0;}
+.edu-sub-title{
+  font-size:11px; font-weight:700; color:var(--primary-d);
+  padding:7px 10px; background:var(--primary-bg); border-bottom:1px solid var(--border);
+}
+.edu-sub-body{padding:10px 10px 8px;}
+.same-check{
+  display:flex; align-items:center; gap:6px; margin-bottom:12px;
+  font-size:11px; color:var(--g700); cursor:pointer;
+}
+.same-check input[type=checkbox]{accent-color:var(--primary);}
+
+/* Custom section fields */
+.cf-item{display:flex; align-items:center; gap:6px; padding:6px 8px; background:var(--g100); border-radius:6px; margin-bottom:6px;}
+.cf-item-name{font-size:11px; font-weight:600; color:var(--primary-d); max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.cf-item-val{font-size:11px; color:var(--g700); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.cf-item-del{background:none; border:none; color:var(--danger); cursor:pointer; font-size:16px; line-height:1; padding:0 2px; flex-shrink:0;}
+.cf-add-form{display:none; margin-top:8px; border:1px solid var(--border); border-radius:8px; padding:10px;}
+.cf-add-form.open{display:block;}
+.cf-btns{display:flex; gap:6px; margin-top:8px;}
+.cf-btn{padding:6px 12px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer; border:none; font-family:inherit;}
+.cf-btn-ok{background:var(--primary); color:#fff;}
+.cf-btn-no{background:var(--g200); color:var(--g700);}
+
+/* Bottom bar */
+.form-bottom{
+  flex-shrink:0; padding:10px 14px 10px;
+  background:var(--card-bg); border-top:1px solid var(--border);
+  box-shadow:0 -2px 8px rgba(0,0,0,.06);
+}
+.btn-fill-form{
+  width:100%; padding:12px; background:var(--btn-bg); color:#fff;
+  border:none; border-radius:var(--radius); font-size:14px; font-weight:700;
+  cursor:pointer; font-family:inherit; margin-bottom:8px; transition:opacity .15s;
+}
+.btn-fill-form:hover{opacity:.9;}
+.btn-fill-form:active{transform:scale(.98);}
+.form-action-row{display:flex; gap:8px;}
+.btn-save-p{flex:1; padding:9px; background:transparent; color:var(--primary); border:1.5px solid var(--primary); border-radius:var(--radius); font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; transition:background .15s;}
+.btn-save-p:hover{background:var(--primary-bg);}
+.btn-reset-p{flex:1; padding:9px; background:transparent; color:var(--danger); border:1.5px solid var(--danger); border-radius:var(--radius); font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; transition:background .15s;}
+.btn-reset-p:hover{background:var(--danger-l);}
+#form-status{font-size:11px; text-align:center; min-height:14px; margin-top:5px; font-weight:500;}
+
+/* ══════════════════════════════════
+   ACCOUNT PANEL — FULL SCREEN OVERLAY (slides from right)
+══════════════════════════════════ */
+.slide-panel{
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  background:var(--card-bg); z-index:9999;
+  display:flex; flex-direction:column;
+  box-shadow:-4px 0 20px rgba(0,0,0,.18);
+  transform:translateX(100%);
+  transition:transform .25s ease;
+  overflow:hidden;
+}
+.slide-panel.open{transform:translateX(0);}
+.panel-hdr{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 16px; background:var(--primary); color:#fff;
+  flex-shrink:0; height:52px; min-height:52px;
+}
+.panel-hdr-title{font-size:14px; font-weight:700; color:#fff;}
+.panel-close-btn{
+  background:none; border:none; color:#fff; cursor:pointer;
+  font-size:20px; width:32px; height:32px;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:50%; transition:background .15s;
+}
+.panel-close-btn:hover{background:rgba(255,255,255,.18);}
+.panel-body{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+.panel-body::-webkit-scrollbar{width:4px;}
+.panel-body::-webkit-scrollbar-thumb{background:var(--g300); border-radius:2px;}
+
+/* Account top */
+.acct-top{
+  padding:18px 16px 14px; text-align:center;
+  background:var(--g100); border-bottom:1px solid var(--border);
+}
+.acct-avatar{
+  width:70px; height:70px; border-radius:50%; background:var(--primary);
+  color:#fff; font-size:26px; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+  margin:0 auto 10px; overflow:hidden; cursor:pointer;
+  border:3px solid var(--primary-l); transition:opacity .15s;
+}
+.acct-avatar:hover{opacity:.88;}
+.acct-avatar img{width:100%;height:100%;object-fit:cover;}
+.acct-name{font-size:15px; font-weight:700; color:var(--text); margin-bottom:2px;}
+.acct-email{font-size:11px; color:var(--sub-text);}
+
+/* Panel menu */
+.panel-menu{padding:6px 0;}
+.panel-mi{
+  display:flex; align-items:center; gap:12px; padding:12px 16px;
+  cursor:pointer; color:var(--text); border:none; background:none;
+  width:100%; text-align:left; font-family:inherit; font-size:13px;
+  transition:background .1s;
+}
+.panel-mi:hover{background:var(--g100);}
+.panel-mi .mi-icon{width:20px; text-align:center; font-size:15px; flex-shrink:0;}
+.panel-mi .mi-label{flex:1; font-weight:500;}
+.panel-mi .mi-arrow{font-size:12px; color:var(--g400);}
+.panel-mi.danger{color:var(--danger);}
+.panel-mi.danger:hover{background:var(--danger-l);}
+.panel-divider{height:1px; background:var(--border); margin:4px 0;}
+.panel-sec-label{
+  font-size:10px; font-weight:700; color:var(--g500);
+  text-transform:uppercase; letter-spacing:.6px; padding:8px 16px 4px;
+}
+
+/* Expandable */
+.panel-expand{display:none; background:var(--g100); border-top:1px solid var(--border);}
+.panel-expand.open{display:block;}
+.expand-inner{padding:12px 16px;}
+.expand-field{display:flex; flex-direction:column; gap:4px; margin-bottom:10px;}
+.expand-field label{font-size:11px; font-weight:600; color:var(--g700);}
+.expand-field input{
+  padding:8px 10px; border:1.5px solid var(--border); border-radius:7px;
+  font-size:12px; background:var(--card-bg); color:var(--text);
+  outline:none; font-family:inherit; width:100%;
+}
+.expand-field input:focus{border-color:var(--primary);}
+.expand-btn{padding:8px 14px; border-radius:7px; font-size:12px; font-weight:600; cursor:pointer; border:none; font-family:inherit; background:var(--primary); color:#fff;}
+.expand-btn:hover{opacity:.9;}
+.expand-msg{font-size:11px; margin-top:6px; min-height:14px;}
+
+/* Settings */
+.setting-row{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 16px; border-bottom:1px solid var(--border);
+}
+.setting-label{font-size:13px; font-weight:500; color:var(--text);}
+.toggle{position:relative; width:42px; height:24px;}
+.toggle input{opacity:0; width:0; height:0;}
+.toggle-slider{position:absolute; inset:0; background:var(--g400); border-radius:12px; cursor:pointer; transition:.3s;}
+.toggle-slider::before{content:''; position:absolute; width:18px; height:18px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.3s;}
+.toggle input:checked + .toggle-slider{background:var(--primary);}
+.toggle input:checked + .toggle-slider::before{transform:translateX(18px);}
+.font-btns{display:flex; gap:4px;}
+.font-sz-btn{
+  padding:4px 9px; border:1.5px solid var(--border); border-radius:6px;
+  font-size:11px; font-weight:600; cursor:pointer;
+  background:var(--card-bg); color:var(--g700); transition:.15s;
+}
+.font-sz-btn.active{border-color:var(--primary); background:var(--primary-bg); color:var(--primary);}
+
+/* ══════════════════════════════════
+   DEVELOPER OPTIONS SCREEN (full screen)
+══════════════════════════════════ */
+#screen-devops{background:var(--page-bg);}
+.dev-tabs{
+  display:flex; border-bottom:2px solid var(--border);
+  background:var(--card-bg); flex-shrink:0;
+}
+.dev-tab{
+  flex:1; padding:10px 4px; text-align:center; font-size:12px; font-weight:600;
+  cursor:pointer; color:var(--g600); border:none; background:none;
+  font-family:inherit; border-bottom:2px solid transparent; margin-bottom:-2px;
+  transition:.15s;
+}
+.dev-tab.active{color:var(--primary); border-bottom-color:var(--primary);}
+.dev-content{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+.dev-tab-pane{display:none; padding:14px;}
+.dev-tab-pane.active{display:block;}
+.user-item{
+  display:flex; align-items:center; gap:10px;
+  padding:10px; background:var(--card-bg);
+  border:1px solid var(--border); border-radius:8px; margin-bottom:8px;
+}
+.user-item-avatar{
+  width:36px; height:36px; border-radius:50%; background:var(--primary);
+  color:#fff; font-size:14px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.user-item-info{flex:1; min-width:0;}
+.user-item-name{font-size:12px; font-weight:600; color:var(--text);}
+.user-item-meta{font-size:10px; color:var(--sub-text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.user-item-del{
+  padding:5px 10px; border:1px solid var(--danger); border-radius:6px;
+  background:transparent; color:var(--danger); font-size:11px;
+  cursor:pointer; font-family:inherit; font-weight:600; flex-shrink:0;
+}
+.color-row{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:12px; font-size:12px; color:var(--text); font-weight:500;
+}
+.color-row input[type=color]{width:44px; height:28px; border:1px solid var(--border); border-radius:6px; cursor:pointer; padding:0;}
+.feat-row{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:11px 0; border-bottom:1px solid var(--border);
+  font-size:13px; font-weight:500; color:var(--text);
+}
+.feat-row:last-of-type{border-bottom:none;}
+.dev-row-btns{display:flex; gap:8px; margin-top:14px;}
+.dev-btn{flex:1; padding:9px; border-radius:7px; font-size:12px; font-weight:600; cursor:pointer; border:none; font-family:inherit;}
+.dev-btn-primary{background:var(--primary); color:#fff;}
+.dev-btn-primary:hover{opacity:.9;}
+.dev-btn-outline{background:transparent; color:var(--g700); border:1.5px solid var(--g300);}
+.dev-save-msg{font-size:11px; color:var(--primary); font-weight:600; margin-top:8px; min-height:15px;}
+.dev-section-row{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+
+/* ── MODAL ── */
+#modal-overlay{
+  display:none; position:absolute; inset:0; background:rgba(0,0,0,.45);
+  z-index:10000; align-items:center; justify-content:center;
+}
+#modal-overlay.show{display:flex;}
+.modal-box{
+  background:var(--card-bg); border-radius:14px; padding:22px 20px;
+  width:300px; box-shadow:0 8px 32px rgba(0,0,0,.22); margin:0 20px;
+}
+.modal-title{font-size:15px; font-weight:700; color:var(--text); margin-bottom:6px;}
+.modal-msg{font-size:13px; color:var(--g700); margin-bottom:18px; line-height:1.5;}
+.modal-input{
+  padding:9px 12px; border:1.5px solid var(--border); border-radius:var(--radius);
+  font-size:13px; background:var(--card-bg); color:var(--text);
+  outline:none; font-family:inherit; width:100%; margin-bottom:12px;
+}
+.modal-input:focus{border-color:var(--primary);}
+.modal-btns{display:flex; gap:8px;}
+.modal-btn{flex:1; padding:9px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; border:none; font-family:inherit;}
+.modal-btn-yes{background:var(--primary); color:#fff;}
+.modal-btn-yes:hover{opacity:.9;}
+.modal-btn-no{background:var(--g200); color:var(--g700);}
+.modal-btn-danger{background:var(--danger); color:#fff;}
+.modal-btn-danger:hover{opacity:.9;}
+
+.hidden{display:none!important;}
+</style>
+</head>
+<body>
+
+<!-- ════ LOADING OVERLAY ════ -->
+<div id="overlay-loading">
+  <div class="spinner"></div>
+  <div id="overlay-loading-text">Loading...</div>
+</div>
+
+<!-- ════ SCREEN 1: LOGIN ════ -->
+<div id="screen-login" class="screen active">
+  <div class="auth-wrap">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9 12h6M9 16h4" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="auth-logo-text">
+        <h1>Auto Form Filler</h1>
+        <p>Smart cloud-synced form filling</p>
+      </div>
+    </div>
+    <div class="auth-title">Sign in to your account</div>
+    <div class="form-group">
+      <label>Email</label>
+      <input id="li-email" type="email" placeholder="Enter your E-mail" autocomplete="email"/>
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input id="li-pass" type="password" placeholder="••••••••" autocomplete="current-password"/>
+    </div>
+    <div id="li-error" class="msg-error"></div>
+    <button id="btn-login" class="btn btn-primary">Login</button>
+    <div class="auth-divider">— or —</div>
+    <div class="auth-footer">
+      <button class="auth-link" id="btn-go-register">Create an account</button>
+      &nbsp;·&nbsp;
+      <button class="auth-link" id="link-forgot">Forgot password?</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SCREEN 2: REGISTER ════ -->
+<div id="screen-register" class="screen">
+  <div class="auth-wrap">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="auth-logo-text"><h1>Create Account</h1><p>Join Auto Form Filler</p></div>
+    </div>
+    <div class="form-row-2">
+      <div class="form-group"><label>First Name</label><input id="rg-first" type="text" placeholder="First"/></div>
+      <div class="form-group"><label>Last Name</label><input id="rg-last" type="text" placeholder="Last"/></div>
+    </div>
+    <div class="form-group"><label>Email</label><input id="rg-email" type="email" placeholder="your@email.com"/></div>
+    <div class="form-group">
+      <label>Password</label>
+      <input id="rg-pass" type="password" placeholder="••••••••"/>
+      <div>
+        <div class="strength-bar-bg"><div id="strength-bar" class="strength-bar"></div></div>
+        <div class="strength-row">
+          <ul class="pw-rules">
+            <li id="r-len">8+ chars</li><li id="r-up">Uppercase</li>
+            <li id="r-low">Lowercase</li><li id="r-num">Number</li><li id="r-sym">Symbol</li>
+          </ul>
+          <span id="strength-label" class="strength-label"></span>
+        </div>
+      </div>
+    </div>
+    <div class="form-group"><label>Confirm Password</label><input id="rg-confirm" type="password" placeholder="••••••••"/></div>
+    <div id="rg-error" class="msg-error"></div>
+    <button id="btn-register" class="btn btn-primary" disabled>Register</button>
+    <div class="auth-footer mt-8">Already have an account? <button class="auth-link" id="btn-back-login">Sign in</button></div>
+  </div>
+</div>
+
+<!-- ════ SCREEN 3: FORGOT PASSWORD ════ -->
+<div id="screen-forgot" class="screen">
+  <div class="auth-wrap">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="11" width="18" height="11" rx="2" stroke="#fff" stroke-width="2"/>
+          <path d="M7 11V7a5 5 0 0110 0v4" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="auth-logo-text"><h1>Reset Password</h1><p>We'll send you a reset link</p></div>
+    </div>
+    <div class="form-group"><label>Email address</label><input id="fp-email" type="email" placeholder="your@email.com"/></div>
+    <div id="fp-error" class="msg-error"></div>
+    <div id="fp-ok" class="msg-ok hidden">Reset link sent! Check your inbox.</div>
+    <button id="btn-send-reset" class="btn btn-primary">Send Reset Link</button>
+    <div class="auth-footer mt-8"><button class="auth-link" id="btn-forgot-back">← Back to Login</button></div>
+  </div>
+</div>
+
+<!-- ════ SCREEN 4: PROFILE LIST ════ -->
+<div id="screen-profiles" class="screen">
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <div class="top-bar-title">Auto Form Filler</div>
+      <div class="top-bar-sub" id="profiles-welcome">Welcome back!</div>
+    </div>
+    <div class="top-bar-right">
+      <button class="avatar-btn" id="btn-open-acct-profiles" title="Account"></button>
+    </div>
+  </div>
+  <div class="screen-body">
+    <div class="screen-body-pad">
+      <div id="profile-list" class="profile-list"></div>
+      <div class="profile-list" style="margin-top:10px;">
+        <div class="add-profile-card" id="btn-add-profile">
+          <span style="font-size:22px;font-weight:300;color:inherit;">+</span>
+          <span>Create New Profile</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ SCREEN 5: FORM ════ -->
+<div id="screen-form" class="screen">
+  <div class="top-bar">
+    <button class="top-bar-back" id="btn-back-to-profiles" title="Back">&#8592;</button>
+    <div class="top-bar-center">
+      <span class="top-bar-title" id="form-screen-profile-name">Profile</span>
+    </div>
+    <div class="top-bar-right">
+      <button class="avatar-btn" id="btn-open-acct-form" title="Account"></button>
+    </div>
+  </div>
+  <div class="screen-body" id="form-screen-body">
+    <div class="screen-body-pad">
+
+      <!-- Personal Info -->
+      <div class="section open">
+        <div class="section-hdr"><span>Personal Information</span><span class="chevron">&#9660;</span></div>
+        <div class="section-body">
+          <div class="field-row"><label class="field-label">Applicant Name (English)</label><input class="field-input" id="f-name-en" type="text" placeholder="FULL NAME IN ENGLISH"/></div>
+          <div class="field-row"><label class="field-label">Applicant Name (Bangla)</label><input class="field-input" id="f-name-bn" type="text" placeholder="বাংলায় নাম"/></div>
+          <div class="field-row"><label class="field-label">Father's Name (English)</label><input class="field-input" id="f-father-en" type="text" placeholder="Father's Name"/></div>
+          <div class="field-row"><label class="field-label">Father's Name (Bangla)</label><input class="field-input" id="f-father-bn" type="text" placeholder="পিতার নাম"/></div>
+          <div class="field-row"><label class="field-label">Mother's Name (English)</label><input class="field-input" id="f-mother-en" type="text" placeholder="Mother's Name"/></div>
+          <div class="field-row"><label class="field-label">Mother's Name (Bangla)</label><input class="field-input" id="f-mother-bn" type="text" placeholder="মাতার নাম"/></div>
+          <div class="field-row-2">
+            <div class="field-row"><label class="field-label">Date of Birth</label><input class="field-input" id="f-dob" type="date"/></div>
+            <div class="field-row"><label class="field-label">Gender</label><select class="field-select" id="f-gender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+          </div>
+          <div class="field-row"><label class="field-label">NID Number</label><input class="field-input" id="f-nid" type="text" placeholder="National ID Number"/></div>
+          <div class="field-row"><label class="field-label">Birth Registration Number</label><input class="field-input" id="f-birth-reg" type="text" placeholder="Birth Registration No."/></div>
+          <div class="field-row-2">
+            <div class="field-row"><label class="field-label">Mobile</label><input class="field-input" id="f-mobile" type="tel" placeholder="01XXXXXXXXX"/></div>
+            <div class="field-row"><label class="field-label">Confirm Mobile</label><input class="field-input" id="f-mobile-confirm" type="tel" placeholder="01XXXXXXXXX"/></div>
+          </div>
+          <div class="field-row"><label class="field-label">Email</label><input class="field-input" id="f-email" type="email" placeholder="email@example.com"/></div>
+          <div class="field-row-2">
+            <div class="field-row"><label class="field-label">Religion</label><select class="field-select" id="f-religion"><option value="">Select</option><option>Islam</option><option>Hinduism</option><option>Christianity</option><option>Buddhism</option><option>Other</option></select></div>
+            <div class="field-row"><label class="field-label">Nationality</label><input class="field-input" id="f-nationality" type="text" placeholder="Bangladeshi"/></div>
+          </div>
+          <div class="field-row"><label class="field-label">Marital Status</label><select class="field-select" id="f-marital"><option value="">Select</option><option>Single</option><option>Married</option><option>Divorced</option><option>Widowed</option></select></div>
+        </div>
+      </div>
+
+      <!-- Address -->
+      <div class="section" id="sec-address">
+        <div class="section-hdr"><span>Address</span><span class="chevron">&#9660;</span></div>
+        <div class="section-body">
+          <div class="edu-sub">
+            <div class="edu-sub-title">Present Address</div>
+            <div class="edu-sub-body">
+              <div class="field-row"><label class="field-label">Care Of</label><input class="field-input" id="f-careof" type="text" placeholder="C/O Guardian Name"/></div>
+              <div class="field-row"><label class="field-label">Village / Road</label><input class="field-input" id="f-village" type="text" placeholder="Village or Road"/></div>
+              <div class="field-row"><label class="field-label">District</label><input class="field-input" id="f-district" type="text" placeholder="District"/></div>
+              <div class="field-row"><label class="field-label">Upazila</label><input class="field-input" id="f-upazila" type="text" placeholder="Upazila / Thana"/></div>
+              <div class="field-row-2">
+                <div class="field-row"><label class="field-label">Post Office</label><input class="field-input" id="f-postoffice" type="text" placeholder="Post Office"/></div>
+                <div class="field-row"><label class="field-label">Post Code</label><input class="field-input" id="f-postcode" type="text" placeholder="0000"/></div>
+              </div>
+            </div>
+          </div>
+          <label class="same-check"><input type="checkbox" id="perm-same-as-present"/> Same as Present Address</label>
+          <div class="edu-sub">
+            <div class="edu-sub-title">Permanent Address</div>
+            <div class="edu-sub-body">
+              <div class="field-row"><label class="field-label">Care Of</label><input class="field-input" id="f-perm-careof" type="text" placeholder="C/O Guardian Name"/></div>
+              <div class="field-row"><label class="field-label">Village / Road</label><input class="field-input" id="f-perm-village" type="text" placeholder="Village or Road"/></div>
+              <div class="field-row"><label class="field-label">District</label><input class="field-input" id="f-perm-district" type="text" placeholder="District"/></div>
+              <div class="field-row"><label class="field-label">Upazila</label><input class="field-input" id="f-perm-upazila" type="text" placeholder="Upazila / Thana"/></div>
+              <div class="field-row-2">
+                <div class="field-row"><label class="field-label">Post Office</label><input class="field-input" id="f-perm-postoffice" type="text" placeholder="Post Office"/></div>
+                <div class="field-row"><label class="field-label">Post Code</label><input class="field-input" id="f-perm-postcode" type="text" placeholder="0000"/></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Education -->
+      <div class="section" id="sec-edu">
+        <div class="section-hdr"><span>Education</span><span class="chevron">&#9660;</span></div>
+        <div class="section-body">
+          <!-- JSC -->
+          <div class="edu-sub"><div class="edu-sub-title">JSC / Equivalent</div><div class="edu-sub-body">
+            <div class="field-row-2"><div class="field-row"><label class="field-label">Exam Name</label><input class="field-input" id="f-jsc-exam" type="text" placeholder="J.S.C"/></div><div class="field-row"><label class="field-label">Board</label><input class="field-input" id="f-jsc-board" type="text" placeholder="Board"/></div></div>
+            <div class="field-row-2"><div class="field-row"><label class="field-label">Roll No.</label><input class="field-input" id="f-jsc-roll" type="text" placeholder="Roll"/></div><div class="field-row"><label class="field-label">Group / Subject</label><input class="field-input" id="f-jsc-group" type="text" placeholder="Group"/></div></div>
+                        <div class="field-row"><label class="field-label">Result</label>
+              <select class="field-input result-select" id="f-jsc-result" onchange="onResultChange('jsc')">
+                <option value="">-- Select --</option>
+                <option value="1st Division">1st Division</option>
+                <option value="2nd Division">2nd Division</option>
+                <option value="3rd Division">3rd Division</option>
+                <option value="GPA(out of 4)">GPA (out of 4)</option>
+                <option value="GPA(out of 5)">GPA (out of 5)</option>
+              </select>
+            </div>
+            <div class="field-row gpa-point-row" id="gpa-row-jsc" style="display:none;">
+              <label class="field-label">GPA Point</label>
+              <input class="field-input" id="f-jsc-gpa" type="text" placeholder="0.00"/>
+            </div>
+            <div class="field-row-2">
+              <div class="field-row"><label class="field-label">Passing Year</label><input class="field-input" id="f-jsc-year" type="text" placeholder="YYYY"/></div>
+              <div class="field-row"><label class="field-label">Institute Name</label><input class="field-input" id="f-jsc-institute" type="text" placeholder="School / Madrasah Name"/></div>
+            </div>
+          </div></div>
+          <!-- SSC -->
+          <div class="edu-sub"><div class="edu-sub-title">SSC / Equivalent</div><div class="edu-sub-body">
+            <div class="field-row-2"><div class="field-row"><label class="field-label">Exam Name</label><input class="field-input" id="f-ssc-exam" type="text" placeholder="S.S.C"/></div><div class="field-row"><label class="field-label">Board</label><input class="field-input" id="f-ssc-board" type="text" placeholder="Board"/></div></div>
+            <div class="field-row-2"><div class="field-row"><label class="field-label">Roll No.</label><input class="field-input" id="f-ssc-roll" type="text" placeholder="Roll"/></div><div class="field-row"><label class="field-label">Group / Subject</label><input class="field-input" id="f-ssc-group" type="text" placeholder="Group"/></div></div>
+                        <div class="field-row"><label class="field-label">Result</label>
+              <select class="field-input result-select" id="f-ssc-result" onchange="onResultChange('ssc')">
+                <option value="">-- Select --</option>
+                <option value="1st Division">1st Division</option>
+                <option value="2nd Division">2nd Division</option>
+                <option value="3rd Division">3rd Division</option>
+                <option value="GPA(out of 4)">GPA (out of 4)</option>
+                <option value="GPA(out of 5)">GPA (out of 5)</option>
+              </select>
+            </div>
+            <div class="field-row gpa-point-row" id="gpa-row-ssc" style="display:none;">
+              <label class="field-label">GPA Point</label>
+              <input class="field-input" id="f-ssc-gpa" type="text" placeholder="0.00"/>
+            </div>
+            <div class="field-row-2">
+              <div class="field-row"><label class="field-label">Passing Year</label><input class="field-input" id="f-ssc-year" type="text" placeholder="YYYY"/></div>
+              <div class="field-row"><label class="field-label">Institute Name</label><input class="field-input" id="f-ssc-institute" type="text" placeholder="School / Madrasah Name"/></div>
+            </div>
+          </div></div>
+          <!-- HSC -->
+          <div class="edu-sub"><div class="edu-sub-title">HSC / Equivalent</div><div class="edu-sub-body">
+            <div class="field-row-2"><div class="field-row"><label class="field-label">Exam Name</label><input class="field-input" id="f-hsc-exam" type="text" placeholder="H.S.C"/></div><div class="field-row"><label class="field-label">Board</label><input class="field-input" id="f-hsc-board" type="text" placeholder="Board"/></div></div>
+            <div class="field-row-2"><div class="field-row"><label class="field-label">Roll No.</label><input class="field-input" id="f-hsc-roll" type="text" placeholder="Roll"/></div><div class="field-row"><label class="field-label">Group / Subject</label><input class="field-input" id="f-hsc-group" type="text" placeholder="Group"/></div></div>
+                        <div class="field-row"><label class="field-label">Result</label>
+              <select class="field-input result-select" id="f-hsc-result" onchange="onResultChange('hsc')">
+                <option value="">-- Select --</option>
+                <option value="1st Division">1st Division</option>
+                <option value="2nd Division">2nd Division</option>
+                <option value="3rd Division">3rd Division</option>
+                <option value="GPA(out of 4)">GPA (out of 4)</option>
+                <option value="GPA(out of 5)">GPA (out of 5)</option>
+              </select>
+            </div>
+            <div class="field-row gpa-point-row" id="gpa-row-hsc" style="display:none;">
+              <label class="field-label">GPA Point</label>
+              <input class="field-input" id="f-hsc-gpa" type="text" placeholder="0.00"/>
+            </div>
+            <div class="field-row-2">
+              <div class="field-row"><label class="field-label">Passing Year</label><input class="field-input" id="f-hsc-year" type="text" placeholder="YYYY"/></div>
+              <div class="field-row"><label class="field-label">Institute Name</label><input class="field-input" id="f-hsc-institute" type="text" placeholder="College / Madrasah Name"/></div>
+            </div>
+          </div></div>
+          <!-- Diploma -->
+          <div class="edu-sub"><div class="edu-sub-title">Diploma</div><div class="edu-sub-body">
+            <div class="field-row-2"><div class="field-row"><label class="field-label">Exam Name</label><input class="field-input" id="f-diploma-exam" type="text" placeholder="Diploma in Eng."/></div><div class="field-row"><label class="field-label">Board</label><input class="field-input" id="f-diploma-board" type="text" placeholder="Board"/></div></div>
+            <div class="field-row"><label class="field-label">Technology / Subject</label><input class="field-input" id="f-diploma-group" type="text" placeholder="Computer / Civil"/></div>
+                        <div class="field-row"><label class="field-label">Result</label>
+              <select class="field-input result-select" id="f-diploma-result" onchange="onResultChange('diploma')">
+                <option value="">-- Select --</option>
+                <option value="1st Division">1st Division</option>
+                <option value="2nd Division">2nd Division</option>
+                <option value="3rd Division">3rd Division</option>
+                <option value="GPA(out of 4)">GPA (out of 4)</option>
+                <option value="GPA(out of 5)">GPA (out of 5)</option>
+              </select>
+            </div>
+            <div class="field-row gpa-point-row" id="gpa-row-diploma" style="display:none;">
+              <label class="field-label">GPA Point</label>
+              <input class="field-input" id="f-diploma-gpa" type="text" placeholder="0.00"/>
+            </div>
+            <div class="field-row-2">
+              <div class="field-row"><label class="field-label">Passing Year</label><input class="field-input" id="f-diploma-year" type="text" placeholder="YYYY"/></div>
+              <div class="field-row"><label class="field-label">Institution Name</label><input class="field-input" id="f-diploma-institute" type="text" placeholder="Polytechnic / Institute Name"/></div>
+            </div>
+          </div></div>
+          <!-- Graduation -->
+          <div class="edu-sub"><div class="edu-sub-title">Graduation / Bachelor's</div><div class="edu-sub-body">
+            <div class="field-row-2"><div class="field-row"><label class="field-label">Degree</label><input class="field-input" id="f-grad-exam" type="text" placeholder="B.Sc / B.A"/></div><div class="field-row"><label class="field-label">Subject</label><input class="field-input" id="f-grad-subject" type="text" placeholder="Subject"/></div></div>
+                        <div class="field-row"><label class="field-label">Result</label>
+              <select class="field-input result-select" id="f-grad-result" onchange="onResultChange('grad')">
+                <option value="">-- Select --</option>
+                <option value="1st Division">1st Division</option>
+                <option value="2nd Division">2nd Division</option>
+                <option value="3rd Division">3rd Division</option>
+                <option value="GPA(out of 4)">GPA (out of 4)</option>
+                <option value="GPA(out of 5)">GPA (out of 5)</option>
+              </select>
+            </div>
+            <div class="field-row gpa-point-row" id="gpa-row-grad" style="display:none;">
+              <label class="field-label">GPA Point</label>
+              <input class="field-input" id="f-grad-gpa" type="text" placeholder="0.00"/>
+            </div>
+            <div class="field-row-2">
+              <div class="field-row"><label class="field-label">Passing Year</label><input class="field-input" id="f-grad-year" type="text" placeholder="YYYY"/></div>
+              <div class="field-row"><label class="field-label">College / University Name</label><input class="field-input" id="f-grad-univ" type="text" placeholder="University Name"/></div>
+            </div>
+          </div></div>
+          <!-- Masters -->
+          <div class="edu-sub"><div class="edu-sub-title">Masters</div><div class="edu-sub-body">
+            <div class="field-row-2"><div class="field-row"><label class="field-label">Degree</label><input class="field-input" id="f-masters-exam" type="text" placeholder="M.Sc / M.A"/></div><div class="field-row"><label class="field-label">Subject</label><input class="field-input" id="f-masters-subject" type="text" placeholder="Subject"/></div></div>
+                        <div class="field-row"><label class="field-label">Result</label>
+              <select class="field-input result-select" id="f-masters-result" onchange="onResultChange('masters')">
+                <option value="">-- Select --</option>
+                <option value="1st Division">1st Division</option>
+                <option value="2nd Division">2nd Division</option>
+                <option value="3rd Division">3rd Division</option>
+                <option value="GPA(out of 4)">GPA (out of 4)</option>
+                <option value="GPA(out of 5)">GPA (out of 5)</option>
+              </select>
+            </div>
+            <div class="field-row gpa-point-row" id="gpa-row-masters" style="display:none;">
+              <label class="field-label">GPA Point</label>
+              <input class="field-input" id="f-masters-gpa" type="text" placeholder="0.00"/>
+            </div>
+            <div class="field-row-2">
+              <div class="field-row"><label class="field-label">Passing Year</label><input class="field-input" id="f-masters-year" type="text" placeholder="YYYY"/></div>
+              <div class="field-row"><label class="field-label">College / University Name</label><input class="field-input" id="f-masters-univ" type="text" placeholder="University Name"/></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <!-- Dynamic Custom Sections (loaded from Firestore) -->
+      <div id="sec-custom-sections"></div>
+
+      <div style="height:8px;"></div>
+    </div>
+  </div>
+  <!-- Fixed Bottom Bar -->
+  <div class="form-bottom">
+    <button class="btn-fill-form" id="btn-fill">Fill Form</button>
+    <div class="form-action-row">
+      <button class="btn-save-p" id="btn-save">Save</button>
+      <button class="btn-reset-p" id="btn-reset">Reset</button>
+    </div>
+    <div id="form-status"></div>
+  </div>
+</div>
+
+<!-- ════ SCREEN 6: DEVELOPER OPTIONS (full screen) ════ -->
+<div id="screen-devops" class="screen">
+  <div class="top-bar">
+    <button class="top-bar-back" id="btn-devops-back" title="Back">&#8592;</button>
+    <div class="top-bar-center">
+      <span class="top-bar-title">Developer Options</span>
+    </div>
+    <button class="top-bar-back" id="btn-devops-close" title="Close" style="font-size:16px;">&#10005;</button>
+  </div>
+  <div class="dev-tabs">
+    <button class="dev-tab active" data-tab="users">Users</button>
+    <button class="dev-tab" data-tab="ui">UI Editor</button>
+    <button class="dev-tab" data-tab="features">Features</button>
+  </div>
+  <div class="dev-content">
+    <div class="dev-tab-pane active" id="dtab-users">
+      <div class="dev-section-row">
+        <span style="font-size:13px;font-weight:700;color:var(--text);">All Users</span>
+        <button class="dev-btn dev-btn-outline" id="btn-refresh-users" style="flex:0;padding:5px 12px;font-size:11px;">&#8635; Refresh</button>
+      </div>
+      <div id="user-list"></div>
+    </div>
+    <div class="dev-tab-pane" id="dtab-ui">
+      <div class="color-row"><span>Text Color</span><input type="color" id="ui-text-color" value="#212121"/></div>
+      <div class="color-row"><span>Background Color</span><input type="color" id="ui-bg-color" value="#F1F8E9"/></div>
+      <div class="color-row"><span>Button Color</span><input type="color" id="ui-btn-color" value="#2E7D32"/></div>
+      <div class="color-row"><span>Header Color</span><input type="color" id="ui-hdr-color" value="#2E7D32"/></div>
+      <div style="font-size:11px;font-weight:700;color:var(--g700);margin-bottom:8px;">Font Size</div>
+      <div class="font-btns" style="margin-bottom:8px;">
+        <button class="font-sz-btn" data-size="11">Small</button>
+        <button class="font-sz-btn active" data-size="13">Medium</button>
+        <button class="font-sz-btn" data-size="15">Large</button>
+        <div style="display:flex;align-items:center;gap:4px;border:1.5px solid var(--border);border-radius:6px;padding:2px 6px;background:var(--card-bg);">
+          <span style="font-size:10px;font-weight:600;color:var(--g600);">Custom</span>
+          <select id="ui-font-custom" style="border:none;background:transparent;font-size:11px;color:var(--text);outline:none;cursor:pointer;padding:2px 0;">
+            <option value="">–</option>
+            <option value="10">10px</option>
+            <option value="11">11px</option>
+            <option value="12">12px</option>
+            <option value="13">13px</option>
+            <option value="14">14px</option>
+            <option value="15">15px</option>
+            <option value="16">16px</option>
+            <option value="17">17px</option>
+            <option value="18">18px</option>
+            <option value="19">19px</option>
+            <option value="20">20px</option>
+            <option value="22">22px</option>
+            <option value="24">24px</option>
+            <option value="26">26px</option>
+            <option value="28">28px</option>
+            <option value="30">30px</option>
+            <option value="32">32px</option>
+            <option value="36">36px</option>
+            <option value="40">40px</option>
+            <option value="44">44px</option>
+            <option value="48">48px</option>
+            <option value="50">50px</option>
+          </select>
+        </div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--g700);margin-bottom:6px;">Font Style</div>
+      <select id="ui-font-family" class="field-select" style="margin-bottom:10px;">
+        <option value="'Segoe UI',system-ui,sans-serif">Segoe UI (Default)</option>
+        <optgroup label="— Sans Serif —">
+          <option value="Arial,Helvetica,sans-serif">Arial</option>
+          <option value="Calibri,Candara,sans-serif">Calibri</option>
+          <option value="'Trebuchet MS',Tahoma,sans-serif">Trebuchet MS</option>
+        </optgroup>
+        <optgroup label="— Classic Serif —">
+          <option value="'Times New Roman',Times,serif">Times New Roman</option>
+          <option value="Georgia,serif">Georgia</option>
+          <option value="Garamond,serif">Garamond</option>
+          <option value="Baskerville,'Baskerville Old Face',serif">Baskerville Old Face</option>
+          <option value="'Palatino Linotype','Book Antiqua',Palatino,serif">Palatino Linotype</option>
+          <option value="'Book Antiqua',Palatino,serif">Book Antiqua</option>
+          <option value="'Century Schoolbook','Century',serif">Century Schoolbook</option>
+          <option value="Constantia,serif">Constantia</option>
+          <option value="Cambria,serif">Cambria</option>
+          <option value="Sylfaen,serif">Sylfaen</option>
+          <option value="'Sitka Banner','Sitka Text',serif">Sitka Banner</option>
+        </optgroup>
+        <optgroup label="— Elegant / Display —">
+          <option value="'Bell MT',serif">Bell MT</option>
+          <option value="'Bodoni MT','Bodoni 72',serif">Bodoni MT</option>
+          <option value="'Calisto MT',serif">Calisto MT</option>
+          <option value="Didot,'Bodoni 72 Oldstyle',serif">Didot</option>
+          <option value="'Minion Pro',Garamond,serif">Minion Pro</option>
+          <option value="'Adobe Caslon Pro','Caslon',serif">Adobe Caslon Pro</option>
+          <option value="'Sabon Next LT Pro',Garamond,serif">Sabon</option>
+          <option value="Charter,'Bitstream Charter',serif">Charter</option>
+        </optgroup>
+        <optgroup label="— Google / Web Fonts —">
+          <option value="'Playfair Display',Georgia,serif">Playfair Display</option>
+          <option value="'Cormorant Garamond',Garamond,serif">Cormorant Garamond</option>
+          <option value="Lora,Georgia,serif">Lora</option>
+          <option value="Merriweather,Georgia,serif">Merriweather</option>
+          <option value="'Zilla Slab',Georgia,serif">Zilla Slab</option>
+          <option value="'Libre Baskerville',Georgia,serif">Libre Baskerville</option>
+          <option value="'Source Serif Pro','Source Serif 4',Georgia,serif">Source Serif Pro</option>
+        </optgroup>
+      </select>
+      <div class="dev-row-btns">
+        <button class="dev-btn dev-btn-primary" id="btn-apply-ui-me">Apply (My Account)</button>
+        <button class="dev-btn dev-btn-outline" id="btn-apply-ui-all">Apply as Admin</button>
+      </div>
+      <div class="dev-row-btns" style="margin-top:8px;">
+        <button class="dev-btn dev-btn-outline" id="btn-reset-ui">Reset</button>
+      </div>
+      <div class="dev-save-msg" id="ui-save-msg"></div>
+    </div>
+    <div class="dev-tab-pane" id="dtab-features">
+      <!-- Custom Sections Manager (admin only) -->
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;">Custom Sections</div>
+        <div id="admin-custom-sections"></div>
+        <button class="dev-btn dev-btn-outline" id="btn-show-add-section" style="margin-top:8px;width:100%;">+ Add Section</button>
+        <div id="add-section-form" style="display:none;margin-top:8px;border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--g100);">
+          <div style="font-size:11px;font-weight:600;color:var(--g700);margin-bottom:6px;">Section Name</div>
+          <input type="text" class="field-input" id="new-section-name" placeholder="e.g. Experience, Skills, References" style="margin-bottom:8px;font-size:12px;"/>
+          <div class="cf-btns">
+            <button class="cf-btn cf-btn-ok" id="btn-save-section-me">Save (My Account)</button>
+            <button class="cf-btn cf-btn-ok" id="btn-save-section-admin" style="background:var(--primary-d);">Save as Admin</button>
+            <button class="cf-btn cf-btn-no" id="btn-cancel-section">Cancel</button>
+          </div>
+        </div>
+      </div>
+      <div class="dev-save-msg" id="feat-save-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ ACCOUNT PANEL (full-screen slide overlay) ════ -->
+<div id="panel-account" class="slide-panel">
+  <div class="panel-hdr">
+    <span class="panel-hdr-title">Account</span>
+    <button class="panel-close-btn" id="btn-close-account">&#10005;</button>
+  </div>
+  <div class="panel-body">
+    <div class="acct-top">
+      <div class="acct-avatar" id="acct-avatar-circle" title="Click to change photo"></div>
+      <input type="file" id="acct-photo-input" accept="image/*" style="display:none;"/>
+      <div class="acct-name" id="acct-full-name"></div>
+      <div class="acct-email" id="acct-email"></div>
+    </div>
+    <div class="panel-menu">
+      <div class="panel-sec-label">Profile</div>
+      <button class="panel-mi" id="mi-edit-name"><span class="mi-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span><span class="mi-label">Edit Display Name</span><span class="mi-arrow">&#8250;</span></button>
+      <div class="panel-expand" id="pe-edit-name">
+        <div class="expand-inner">
+          <div class="expand-field"><label>Display Name</label><input type="text" id="inp-display-name" placeholder="Your name"/></div>
+          <button class="expand-btn" id="btn-save-display-name">Save Name</button>
+          <div class="expand-msg" id="msg-display-name"></div>
+        </div>
+      </div>
+      <button class="panel-mi" id="mi-change-pw"><span class="mi-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><span class="mi-label">Change Password</span><span class="mi-arrow">&#8250;</span></button>
+      <div class="panel-expand" id="pe-change-pw">
+        <div class="expand-inner">
+          <div class="expand-field"><label>Current Password</label><input type="password" id="inp-cur-pw" placeholder="Current password"/></div>
+          <div class="expand-field"><label>New Password</label><input type="password" id="inp-new-pw" placeholder="New password"/>
+            <div class="strength-bar-bg" style="margin-top:4px;"><div id="pw-change-bar" class="strength-bar"></div></div>
+          </div>
+          <div class="expand-field"><label>Confirm New Password</label><input type="password" id="inp-conf-pw" placeholder="Confirm new password"/></div>
+          <button class="expand-btn" id="btn-save-pw">Update Password</button>
+          <div class="expand-msg" id="change-pw-error"></div>
+        </div>
+      </div>
+      <button class="panel-mi" id="mi-change-email"><span class="mi-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span><span class="mi-label">Change Email</span><span class="mi-arrow">&#8250;</span></button>
+      <div class="panel-expand" id="pe-change-email">
+        <div class="expand-inner">
+          <div class="expand-field"><label>New Email</label><input type="email" id="inp-new-email" placeholder="new@email.com"/></div>
+          <div class="expand-field"><label>Current Password</label><input type="password" id="inp-email-pw" placeholder="Confirm with password"/></div>
+          <button class="expand-btn" id="btn-save-email">Send Verification</button>
+          <div class="expand-msg" id="change-email-error"></div>
+        </div>
+      </div>
+      <div class="panel-divider"></div>
+      <div class="panel-sec-label">Settings</div>
+      <div class="setting-row"><span class="setting-label">🌙 Dark Mode</span><label class="toggle"><input type="checkbox" id="toggle-dark-mode"/><span class="toggle-slider"></span></label></div>
+      <div class="panel-divider"></div>
+      <div id="mi-dev-opts-wrap" class="hidden">
+        <button class="panel-mi" id="mi-dev-opts"><span class="mi-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="mi-label">Developer Options</span><span class="mi-arrow">&#8250;</span></button>
+        <div class="panel-divider"></div>
+      </div>
+      <button class="panel-mi" id="mi-about"><span class="mi-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span><span class="mi-label">About</span><span class="mi-arrow">&#8250;</span></button>
+      <div class="panel-expand" id="pe-about">
+        <div class="expand-inner">
+          <div id="about-view-mode">
+            <div id="about-text-display" style="font-size:12px;color:var(--text);line-height:1.6;padding:4px 0 10px;white-space:pre-wrap;min-height:40px;"></div>
+            <div id="about-empty-msg" style="font-size:12px;color:var(--sub-text);padding:4px 0 10px;">No about info yet.</div>
+          </div>
+          <div id="about-edit-mode" style="display:none;">
+            <textarea id="inp-about" rows="5" placeholder="Write something about the app..." style="width:100%;border:1.5px solid var(--border);border-radius:6px;padding:8px;background:var(--card-bg);color:var(--text);font-family:inherit;resize:vertical;"></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button class="expand-btn" id="btn-save-about" style="flex:1;">Save</button>
+              <button class="expand-btn" id="btn-cancel-about" style="flex:1;background:var(--g300);color:var(--g700);">Cancel</button>
+            </div>
+            <div class="expand-msg" id="msg-about"></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel-divider"></div>
+      <button class="panel-mi danger" id="btn-logout"><span class="mi-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span><span class="mi-label">Logout</span></button>
+      <div id="mi-delete-acct-wrap">
+        <div class="panel-divider"></div>
+        <button class="panel-mi danger" id="btn-delete-account"><span class="mi-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span><span class="mi-label">Delete Account</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ CONFIRM MODAL ════ -->
+<div id="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title">Confirm</div>
+    <div class="modal-msg" id="modal-msg"></div>
+    <div class="modal-btns">
+      <button class="modal-btn modal-btn-no" id="modal-no">Cancel</button>
+      <button class="modal-btn modal-btn-yes" id="modal-yes">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ NEW PROFILE MODAL ════ -->
+<div id="modal-new-profile" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:10000;align-items:center;justify-content:center;">
+  <div class="modal-box">
+    <div class="modal-title">New Profile</div>
+    <div class="modal-msg">Enter a name for the new profile:</div>
+    <input class="modal-input" id="new-profile-name" type="text" placeholder="e.g. Mizu, Work, Main"/>
+    <div class="modal-btns">
+      <button class="modal-btn modal-btn-no" id="btn-new-profile-cancel">Cancel</button>
+      <button class="modal-btn modal-btn-yes" id="btn-new-profile-save">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ RENAME PROFILE MODAL ════ -->
+<div id="modal-rename-profile" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:10000;align-items:center;justify-content:center;">
+  <div class="modal-box">
+    <div class="modal-title">Rename Profile</div>
+    <input class="modal-input" id="rename-profile-name" type="text" placeholder="Profile name"/>
+    <div class="modal-btns">
+      <button class="modal-btn modal-btn-no" id="btn-rename-cancel">Cancel</button>
+      <button class="modal-btn modal-btn-yes" id="btn-rename-save">Rename</button>
+    </div>
+  </div>
+</div>
+
+<script src="firebase-app-compat.js"></script>
+<script src="firebase-auth-compat.js"></script>
+<script src="firebase-firestore-compat.js"></script>
+<script src="popup.js"></script>
+
+<!-- ════ CROP MODAL ════ -->
+
+<!-- ════ CROP MODAL ════ -->
+<div id="modal-crop" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.75);z-index:20000;flex-direction:column;align-items:center;justify-content:center;">
+  <div style="background:var(--card-bg);border-radius:14px;padding:16px;width:340px;display:flex;flex-direction:column;align-items:center;gap:12px;">
+    <div style="font-weight:700;font-size:14px;color:var(--text);">Crop Profile Photo</div>
+    <div style="position:relative;width:260px;height:260px;border-radius:50%;overflow:hidden;border:3px solid var(--primary);background:#111;cursor:move;" id="crop-viewport">
+      <img id="crop-img" style="position:absolute;user-select:none;touch-action:none;pointer-events:none;" draggable="false"/>
+    </div>
+    <input type="range" id="crop-zoom" min="1" max="3" step="0.01" value="1" style="width:100%;accent-color:var(--primary);"/>
+    <div style="font-size:11px;color:var(--sub-text);">Drag to reposition · Slide to zoom</div>
+    <div id="crop-uploading" style="display:none;font-size:12px;color:var(--primary);font-weight:600;">Uploading photo...</div>
+    <div style="display:flex;gap:10px;width:100%;">
+      <button id="btn-crop-cancel" style="flex:1;padding:9px;border-radius:8px;border:none;background:var(--g300);color:var(--g700);font-weight:600;cursor:pointer;">Cancel</button>
+      <button id="btn-crop-save" style="flex:1;padding:9px;border-radius:8px;border:none;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;">Crop &amp; Save</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
